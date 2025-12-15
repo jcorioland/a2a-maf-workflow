@@ -1,0 +1,31 @@
+{
+  "name": "faa-spike-aca-agents",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/terraform:1": {}
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "uv sync --prerelease=allow",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-azurecontainerapps",
+        "hashicorp.terraform",
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "ruff.enable": true,
+        "ruff.nativeServer": "auto"
+      }
+    }
+  }
+}

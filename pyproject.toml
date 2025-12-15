@@ -1,0 +1,44 @@
+[project]
+name = "faa-spike-aca-agents"
+version = "0.1.0"
+description = "Experiments with Microsoft Agent Framework"
+readme = "README.md"
+requires-python = ">=3.12.3,<3.13"
+license = { text = "Proprietary" }
+
+# Core runtime deps for an Agent Framework-based Python app.
+# Note: Microsoft Agent Framework is currently distributed as a pre-release on PyPI.
+#       Use `uv sync --prerelease=allow` (documented in README) when syncing.
+dependencies = [
+  "agent-framework",
+  "agent-framework-azure-ai",
+  "agent-framework-a2a",
+  "python-dotenv>=1.0.1",
+  "httpx>=0.27.0",
+  "pydantic>=2.7.0",
+  "azure-identity>=1.17.0",
+
+  # Minimal HTTP runtime for Container Apps
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+
+  # Telemetry to Application Insights (Azure Monitor)
+  "azure-monitor-opentelemetry>=1.6.0",
+  "opentelemetry-instrumentation-fastapi>=0.49b0",
+  "opentelemetry-instrumentation-httpx>=0.49b0",
+]
+
+[dependency-groups]
+# Kept intentionally small; add more as the repo grows.
+dev = [
+  "pytest>=8.2.0",
+  "pytest-asyncio>=0.23.0",
+  "ruff>=0.6.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+exclude = ["venv/", ".venv/"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
