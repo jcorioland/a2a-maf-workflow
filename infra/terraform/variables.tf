@@ -7,7 +7,7 @@ variable "location" {
 variable "name_prefix" {
   type        = string
   description = "Prefix used for resource naming"
-  default     = "faa"
+  default     = "a2a-maf"
 }
 
 variable "tags" {

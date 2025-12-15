@@ -1,5 +1,5 @@
 [project]
-name = "faa-spike-aca-agents"
+name = "a2a-maf-workflow"
 version = "0.1.0"
 description = "Experiments with Microsoft Agent Framework"
 readme = "README.md"

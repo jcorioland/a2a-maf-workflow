@@ -6,6 +6,55 @@ requires-python = ">=3.12.3, <3.13"
 prerelease-mode = "allow"
 
 [[package]]
+name = "a2a-maf-workflow"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "agent-framework" },
+    { name = "agent-framework-a2a" },
+    { name = "agent-framework-azure-ai" },
+    { name = "azure-identity" },
+    { name = "azure-monitor-opentelemetry" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-instrumentation-httpx" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agent-framework" },
+    { name = "agent-framework-a2a" },
+    { name = "agent-framework-azure-ai" },
+    { name = "azure-identity", specifier = ">=1.17.0" },
+    { name = "azure-monitor-opentelemetry", specifier = ">=1.6.0" },
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.49b0" },
+    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.49b0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "uvicorn", specifier = ">=0.30.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.2.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "ruff", specifier = ">=0.6.0" },
+]
+
+[[package]]
 name = "a2a-sdk"
 version = "0.3.20"
 source = { registry = "https://pypi.org/simple" }
@@ -746,55 +795,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442, upload-time = "2025-07-21T07:35:01.868Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896, upload-time = "2025-07-21T07:35:00.684Z" },
-]
-
-[[package]]
-name = "faa-spike-aca-agents"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "agent-framework" },
-    { name = "agent-framework-a2a" },
-    { name = "agent-framework-azure-ai" },
-    { name = "azure-identity" },
-    { name = "azure-monitor-opentelemetry" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "opentelemetry-instrumentation-fastapi" },
-    { name = "opentelemetry-instrumentation-httpx" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "agent-framework" },
-    { name = "agent-framework-a2a" },
-    { name = "agent-framework-azure-ai" },
-    { name = "azure-identity", specifier = ">=1.17.0" },
-    { name = "azure-monitor-opentelemetry", specifier = ">=1.6.0" },
-    { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.49b0" },
-    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.49b0" },
-    { name = "pydantic", specifier = ">=2.7.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "uvicorn", specifier = ">=0.30.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.2.0" },
-    { name = "pytest-asyncio", specifier = ">=0.23.0" },
-    { name = "ruff", specifier = ">=0.6.0" },
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 {
-  "name": "faa-spike-aca-agents",
+  "name": "a2a-maf-workflow",
   "build": {
     "dockerfile": "Dockerfile"
   },
