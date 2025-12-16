@@ -1,5 +1,5 @@
 import asyncio
-from agent_framework import AgentRunUpdateEvent, WorkflowBuilder, WorkflowOutputEvent, WorkflowRunResult
+from agent_framework import AgentRunUpdateEvent, WorkflowBuilder, WorkflowOutputEvent
 import httpx
 from agent_framework.a2a import A2AAgent
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
