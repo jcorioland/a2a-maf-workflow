@@ -82,6 +82,8 @@ export APPLICATIONINSIGHTS_CONNECTION_STRING="<connection-string>"
 
 Start the writer service (defaults to port 8000 unless you override):
 
+Note: for A2A clients, make sure the agent card advertises the correct host/port by setting `A2A_PUBLIC_URL` (e.g. `http://localhost:8000`).
+
 ```bash
 PYTHONPATH=src uv run --prerelease=allow uvicorn agents.writer.main:app --host 0.0.0.0 --port 8000
 ```
@@ -119,6 +121,8 @@ curl -N -sS -X POST http://localhost:8000/a2a/v1/message:stream \
 ```
 
 Start the reviewer service:
+
+Note: for A2A clients, set `A2A_PUBLIC_URL` (e.g. `http://localhost:8001`) so the agent card contains the correct port.
 
 ```bash
 PYTHONPATH=src uv run --prerelease=allow uvicorn agents.reviewer.main:app --host 0.0.0.0 --port 8001

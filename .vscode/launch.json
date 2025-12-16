@@ -16,7 +16,8 @@
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "A2A_PUBLIC_URL": "http://127.0.0.1:8000"
       },
       "console": "integratedTerminal",
       "justMyCode": true
@@ -36,7 +37,8 @@
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "A2A_PUBLIC_URL": "http://127.0.0.1:8001"
       },
       "console": "integratedTerminal",
       "justMyCode": true
@@ -53,6 +55,31 @@
       },
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      "name": "Debug: workflow (wait for agents)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/agents/workflow.py",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "preLaunchTask": "Wait for writer+reviewer APIs (healthz initialized)",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug: agents + workflow",
+      "configurations": [
+        "Debug: writer agent",
+        "Debug: reviewer agent",
+        "Debug: workflow (wait for agents)"
+      ],
+      "stopAll": true
     }
   ]
 }

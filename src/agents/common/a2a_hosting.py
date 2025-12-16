@@ -82,7 +82,13 @@ class _TextA2ARequestHandler(RequestHandler):
         incoming = params.message
         context_id = incoming.context_id or _new_id()
         user_text = _message_text(incoming)
-        response_text = await self._respond(user_text, context_id)
+        try:
+            response_text = await self._respond(user_text, context_id)
+        except Exception as exc:
+            # The A2A server stack isn't FastAPI-aware; if an agent raises an
+            # HTTPException (or anything else), translate it into a plain text
+            # response instead of crashing the request with a 500.
+            response_text = f"Error: {exc}"
 
         return Message(
             role=self._agent_role,

@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Wait for writer+reviewer APIs (healthz initialized)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "-u",
+        "${workspaceFolder}/scripts/wait_for_agents.py",
+        "--writer-url",
+        "http://127.0.0.1:8000/healthz",
+        "--reviewer-url",
+        "http://127.0.0.1:8001/healthz",
+        "--timeout",
+        "180"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
