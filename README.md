@@ -118,7 +118,6 @@ curl -N -sS -X POST http://localhost:8000/a2a/v1/message:stream \
     }
   }'
 ```
-```
 
 Start the reviewer service:
 
@@ -158,7 +157,6 @@ curl -N -sS -X POST http://localhost:8001/a2a/v1/message:stream \
       "contextId": "local"
     }
   }'
-```
 ```
 
 ## Adding dependencies
