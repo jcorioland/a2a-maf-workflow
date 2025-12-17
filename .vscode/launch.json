@@ -57,6 +57,21 @@
       "justMyCode": false
     },
     {
+      "name": "Debug: workflow (ACA agents)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/agents/workflow.py",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "WRITER_A2A_BASE_URL": "<WRITER_ACA_BASE_URL>",
+        "REVIEWER_A2A_BASE_URL": "<REVIEWER_ACA_BASE_URL>"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Debug: workflow (wait for agents)",
       "type": "debugpy",
       "request": "launch",

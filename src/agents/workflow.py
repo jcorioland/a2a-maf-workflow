@@ -126,12 +126,12 @@ async def main():
         # Discover writer agent.
         writer_base_url = os.getenv("WRITER_A2A_BASE_URL", "http://localhost:8000/a2a")
         writer_card = await _fetch_reviewer_card(http_client, writer_base_url)
-        print(f"Discovered writer agent: {writer_card.name} - {writer_card.description}")
+        print(f"Discovered writer agent: {writer_card.name} - {writer_card.description} - {writer_card.url}")
         
         # Discover reviewer agent.
         reviewer_base_url = os.getenv("REVIEWER_A2A_BASE_URL", "http://localhost:8001/a2a")
         reviewer_card = await _fetch_reviewer_card(http_client, reviewer_base_url)
-        print(f"Discovered reviewer agent: {reviewer_card.name} - {reviewer_card.description}")
+        print(f"Discovered reviewer agent: {reviewer_card.name} - {reviewer_card.description} - {reviewer_card.url}")
 
         executor_id_to_name = {
             "writer_agent": writer_card.name,
