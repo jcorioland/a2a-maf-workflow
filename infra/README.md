@@ -36,14 +36,11 @@ reviewer_image = "reviewer:latest"
 writer_env = {
   AZURE_AI_PROJECT_ENDPOINT       = "https://<aiservices-id>.services.ai.azure.com/api/projects/<project-name>"
   AZURE_AI_MODEL_DEPLOYMENT_NAME  = "<your-model-deployment-name>"
-  # Optional telemetry
-  # APPLICATIONINSIGHTS_CONNECTION_STRING = "<connection-string>"
 }
 
 reviewer_env = {
   AZURE_AI_PROJECT_ENDPOINT       = "https://<aiservices-id>.services.ai.azure.com/api/projects/<project-name>"
   AZURE_AI_MODEL_DEPLOYMENT_NAME  = "<your-model-deployment-name>"
-  # APPLICATIONINSIGHTS_CONNECTION_STRING = "<connection-string>"
 }
 
 # Optional: advertise public URL in the A2A agent card
@@ -118,6 +115,6 @@ By default, this module sets `AZURE_CLIENT_ID` in the containers to the managed 
 
 ### Application Insights
 
-For ingestion/telemetry, the standard approach is to set `APPLICATIONINSIGHTS_CONNECTION_STRING` (no managed identity needed).
+This project leverage built-in Microsoft Agent Framework / AI Foundry observability. The connection string to application insights is fetched from the AI Foundry Project automatically.
 
 If you need the apps to *query* telemetry (rare for service runtime), grant an Azure Monitor/App Insights read role to the managed identity (for example `Monitoring Reader`) at the appropriate scope.

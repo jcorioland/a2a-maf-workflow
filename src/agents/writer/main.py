@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from agents.common.a2a_hosting import mount_a2a_text_agent
 from agents.common.azure_ai import AgentRuntime, create_azure_ai_agent_client
-from agents.common.telemetry import instrument_fastapi, setup_telemetry
+from agents.common.telemetry import instrument_fastapi, enable_observability
 from agents.common.text import chat_response_text
 
 
@@ -30,7 +30,10 @@ _runtime: AgentRuntime | None = None
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    setup_telemetry(service_name=os.getenv("SERVICE_NAME", "writer-agent"))
+    ai_project_endpoint = os.getenv("AI_PROJECT_ENDPOINT", None)
+    if ai_project_endpoint:
+        await enable_observability(ai_project_endpoint=ai_project_endpoint)
+    
     instrument_fastapi(app)
 
     global _runtime

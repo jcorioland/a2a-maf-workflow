@@ -74,12 +74,6 @@ export AZURE_AI_PROJECT_ENDPOINT="https://<aiservices-id>.services.ai.azure.com/
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="<your-model-deployment-name>"
 ```
 
-Optional telemetry to Application Insights:
-
-```bash
-export APPLICATIONINSIGHTS_CONNECTION_STRING="<connection-string>"
-```
-
 Start the writer service (defaults to port 8000 unless you override):
 
 Note: for A2A clients, make sure the agent card advertises the correct host/port by setting `A2A_PUBLIC_URL` (e.g. `http://localhost:8000`).

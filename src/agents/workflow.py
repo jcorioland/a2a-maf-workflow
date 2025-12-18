@@ -12,18 +12,24 @@ The base URLs can be overridden via environment variables:
 """
 
 import asyncio
+import uuid
+import httpx
 import logging
 import os
 import re
 import shutil
 import textwrap
-from agent_framework import AgentRunUpdateEvent, WorkflowBuilder, WorkflowOutputEvent
-import httpx
-from agent_framework.a2a import A2AAgent
-from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
-from a2a.types import AgentCard, TransportProtocol
+
 from typing import cast
 
+from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
+from a2a.types import AgentCard, TransportProtocol
+
+from agent_framework import AgentRunUpdateEvent, WorkflowBuilder, WorkflowOutputEvent
+from agent_framework.a2a import A2AAgent
+from agent_framework.observability import get_tracer
+
+from agents.common.telemetry import enable_observability
 
 def _wrap_for_console(text: object, *, indent: str = "  ") -> str:
     width = shutil.get_terminal_size(fallback=(100, 24)).columns
@@ -122,6 +128,13 @@ async def main():
     # Make console output less noisy (agent_framework logs a warning when an executor has no outgoing edges).
     logging.getLogger("agent_framework._workflows._runner").setLevel(logging.ERROR)
 
+    # Enable telemetry if configured.
+    ai_project_endpoint = os.getenv("AZURE_AI_PROJECT_ENDPOINT")
+    if ai_project_endpoint:
+        await enable_observability(
+            ai_project_endpoint=ai_project_endpoint,
+        )
+
     async with httpx.AsyncClient(timeout=60.0) as http_client:
         # Discover writer agent.
         writer_base_url = os.getenv("WRITER_A2A_BASE_URL", "http://localhost:8000/a2a")
@@ -138,46 +151,74 @@ async def main():
             "reviewer_agent": reviewer_card.name,
         }
 
-        # Define the workflow graph:
-        # - writer is the start node
-        # - reviewer executes after writer
-        workflow = (
-            WorkflowBuilder()
-                .register_agent(lambda: _create_agent_from_card(http_client, writer_card), "writer_agent", output_response=True)
-                .register_agent(lambda: _create_agent_from_card(http_client, reviewer_card), "reviewer_agent", output_response=True)
-                .set_start_executor("writer_agent")
-                .add_edge(source="writer_agent", target="reviewer_agent")
-                .build()
-        )
+        with get_tracer(__name__).start_as_current_span("workflow_execution") as span:
+            span.set_attribute("writer_agent.url", writer_card.url or "unknown")
+            span.set_attribute("reviewer_agent.url", reviewer_card.url or "unknown")
 
-        # Run the workflow and print readable blocks per executor output.
-        last_output_source: str | None = None
-        final_output_source: str | None = None
-        events = workflow.run_stream("Tell me more about Microsoft.")
-        async for event in events:
-            if isinstance(event, AgentRunUpdateEvent):
-                # Ignore per-token streaming updates to keep console output readable.
-                # (Final blocks are printed from WorkflowOutputEvent below.)
-                continue
-            elif isinstance(event, WorkflowOutputEvent):
-                source = getattr(event, "source_executor_id", None) or "unknown"
-                if source != last_output_source:
-                    if last_output_source is not None:
-                        print()
-                    display = executor_id_to_name.get(source, source)
-                    print(f"## {display} ##:\n")
-                    last_output_source = source
+            # Define the workflow graph:
+            # - writer is the start node
+            # - reviewer executes after writer
+            workflow = (
+                WorkflowBuilder()
+                    .register_agent(lambda: _create_agent_from_card(http_client, writer_card), "writer_agent", output_response=True)
+                    .register_agent(lambda: _create_agent_from_card(http_client, reviewer_card), "reviewer_agent", output_response=True)
+                    .set_start_executor("writer_agent")
+                    .add_edge(source="writer_agent", target="reviewer_agent")
+                    .build()
+            )
 
-                wrapped = _wrap_for_console(event.data)
-                if wrapped:
-                    print(wrapped)
-                else:
-                    print("  (no output)")
+            # Run the workflow in a prompt loop.
+            # Note: use asyncio.to_thread to avoid blocking the event loop on stdin.
+            while True:
+                try:
+                    user_prompt = await asyncio.to_thread(
+                        input,
+                        "\nEnter a prompt for the workflow (or type 'exit' to quit): ",
+                    )
+                except (EOFError, KeyboardInterrupt):
+                    print("\nExiting.")
+                    break
 
-                final_output_source = executor_id_to_name.get(source, source)
+                user_prompt = (user_prompt or "").strip()
+                if not user_prompt:
+                    continue
+                if user_prompt.lower() == "exit":
+                    print("Exiting.")
+                    break
 
-        if final_output_source is not None:
-            print(f"\n===== Final output: {final_output_source} =====")
+                run_id = str(uuid.uuid4())
+                with get_tracer(__name__).start_as_current_span(f"workflow_execution/{run_id}") as run_span:
+                    run_span.set_attribute("workflow.run_id", run_id)
+                    run_span.set_attribute("workflow.prompt", user_prompt)
+
+                    # Run the workflow and print readable blocks per executor output.
+                    last_output_source: str | None = None
+                    final_output_source: str | None = None
+                    events = workflow.run_stream(user_prompt)
+                    async for event in events:
+                        if isinstance(event, AgentRunUpdateEvent):
+                            # Ignore per-token streaming updates to keep console output readable.
+                            # (Final blocks are printed from WorkflowOutputEvent below.)
+                            continue
+                        elif isinstance(event, WorkflowOutputEvent):
+                            source = getattr(event, "source_executor_id", None) or "unknown"
+                            if source != last_output_source:
+                                if last_output_source is not None:
+                                    print()
+                                display = executor_id_to_name.get(source, source)
+                                print(f"## {display} ##:\n")
+                                last_output_source = source
+
+                            wrapped = _wrap_for_console(event.data)
+                            if wrapped:
+                                print(wrapped)
+                            else:
+                                print("  (no output)")
+
+                            final_output_source = executor_id_to_name.get(source, source)
+
+                    if final_output_source is not None:
+                        print(f"\n===== Final output: {final_output_source} =====")
 
 if __name__ == "__main__":
     asyncio.run(main())

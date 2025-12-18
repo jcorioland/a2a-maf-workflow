@@ -1,44 +1,35 @@
-import os
 from typing import Any
 
+from agent_framework.observability import setup_observability
+from azure.ai.projects.aio import AIProjectClient
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
 
 _telemetry_configured = False
 
 
-def setup_telemetry(*, service_name: str) -> None:
-    """Configure OpenTelemetry export to Application Insights (Azure Monitor).
-
-    Controlled via `APPLICATIONINSIGHTS_CONNECTION_STRING`.
-    Safe to call multiple times.
-    """
+async def enable_observability(*, ai_project_endpoint: str) -> None:
+    """Configure OpenTelemetry export to AI Foundry / Application Insights."""
 
     global _telemetry_configured
     if _telemetry_configured:
         return
 
-    connection_string = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
-    if not connection_string:
-        return
+    async with AIProjectClient(
+        endpoint=ai_project_endpoint,
+        credential=AsyncDefaultAzureCredential(),
+    ) as client:
+        connection_string = await client.telemetry.get_application_insights_connection_string()
 
-    from azure.monitor.opentelemetry import configure_azure_monitor
-    from opentelemetry.sdk.resources import Resource
+        if not connection_string:
+            return
+        
+        # Enable Microsoft Agent Framework observability
+        setup_observability(
+            enable_sensitive_data=True,
+            applicationinsights_connection_string=connection_string
+        )
 
-    resource = Resource.create({"service.name": service_name})
-
-    configure_azure_monitor(
-        connection_string=connection_string,
-        resource=resource,
-    )
-
-    # Optional: enable framework/client instrumentations.
-    try:
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-
-        HTTPXClientInstrumentor().instrument()
-    except Exception:
-        pass
-
-    _telemetry_configured = True
+        _telemetry_configured = True
 
 
 def instrument_fastapi(app: Any) -> None:

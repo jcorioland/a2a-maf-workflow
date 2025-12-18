@@ -37,6 +37,7 @@ from a2a.types import (
     UnsupportedOperationError,
 )
 from a2a.utils.errors import ServerError
+from agent_framework.observability import get_tracer
 from fastapi import FastAPI
 
 
@@ -119,42 +120,45 @@ class _TextA2ARequestHandler(RequestHandler):
         params: MessageSendParams,
         context=None,
     ) -> Message:
-        # A2A request payload -> our agent function signature.
-        incoming = params.message
-        context_id = incoming.context_id or _new_id()
-        user_text = _message_text(incoming)
+        with get_tracer(__name__).start_as_current_span("a2a_on_message_send") as span:
+            span.set_attribute("a2a.message_id", params.message.message_id or "unknown")
+            span.set_attribute("a2a.context_id", params.message.context_id or "unknown")
+            # A2A request payload -> our agent function signature.
+            incoming = params.message
+            context_id = incoming.context_id or _new_id()
+            user_text = _message_text(incoming)
 
-        # We deliberately catch all exceptions here:
-        # - The A2A server stack isn't FastAPI-aware.
-        # - If the agent raises `HTTPException` (or any other exception), letting it
-        #   bubble up tends to become a generic 500 without a user-friendly payload.
-        # - Returning a textual error keeps the caller workflow moving and makes it
-        #   easier to debug during local development.
+            # We deliberately catch all exceptions here:
+            # - The A2A server stack isn't FastAPI-aware.
+            # - If the agent raises `HTTPException` (or any other exception), letting it
+            #   bubble up tends to become a generic 500 without a user-friendly payload.
+            # - Returning a textual error keeps the caller workflow moving and makes it
+            #   easier to debug during local development.
 
-        # By default we *don't* include exception details in the response (to avoid
-        # accidentally leaking secrets). Opt in with `A2A_INCLUDE_ERROR_DETAILS=true`.
-        include_error_details = _env_str("A2A_INCLUDE_ERROR_DETAILS", "false").lower() in (
-            "1",
-            "true",
-            "yes",
-            "y",
-        )
-        try:
-            response_text = await self._respond(user_text, context_id)
-        except Exception as exc:
-            logger.exception("A2A agent handler error")
-            response_text = "Error: internal server error"
-            if include_error_details:
-                response_text = f"Error: {type(exc).__name__}: {exc}"
+            # By default we *don't* include exception details in the response (to avoid
+            # accidentally leaking secrets). Opt in with `A2A_INCLUDE_ERROR_DETAILS=true`.
+            include_error_details = _env_str("A2A_INCLUDE_ERROR_DETAILS", "false").lower() in (
+                "1",
+                "true",
+                "yes",
+                "y",
+            )
+            try:
+                response_text = await self._respond(user_text, context_id)
+            except Exception as exc:
+                logger.exception("A2A agent handler error")
+                response_text = "Error: internal server error"
+                if include_error_details:
+                    response_text = f"Error: {type(exc).__name__}: {exc}"
 
-        return Message(
-            role=self._agent_role,
-            parts=[Part(root=TextPart(text=response_text))],
-            # The A2A SDK models use camelCase aliases for JSON, but the Python
-            # field names are snake_case. Pydantic takes care of serialization.
-            message_id=_new_id(),
-            context_id=context_id,
-        )
+            return Message(
+                role=self._agent_role,
+                parts=[Part(root=TextPart(text=response_text))],
+                # The A2A SDK models use camelCase aliases for JSON, but the Python
+                # field names are snake_case. Pydantic takes care of serialization.
+                message_id=_new_id(),
+                context_id=context_id,
+            )
 
     async def on_message_send_stream(
         self,
