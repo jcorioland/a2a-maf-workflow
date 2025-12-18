@@ -42,6 +42,7 @@ from fastapi import FastAPI
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def _env_str(name: str, default: str) -> str:
@@ -120,7 +121,8 @@ class _TextA2ARequestHandler(RequestHandler):
         params: MessageSendParams,
         context=None,
     ) -> Message:
-        with get_tracer(__name__).start_as_current_span("a2a_on_message_send") as span:
+        with get_tracer("a2a").start_as_current_span("a2a_on_message_send") as span:
+            logger.debug(f"A2A on_message_send: message_id={params.message.message_id}, context_id={params.message.context_id}")
             span.set_attribute("a2a.message_id", params.message.message_id or "unknown")
             span.set_attribute("a2a.context_id", params.message.context_id or "unknown")
             # A2A request payload -> our agent function signature.

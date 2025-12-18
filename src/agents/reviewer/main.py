@@ -5,12 +5,13 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 from agent_framework import ChatMessage
+from agent_framework.observability import get_tracer
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from agents.common.a2a_hosting import mount_a2a_text_agent
 from agents.common.azure_ai import AgentRuntime, create_azure_ai_agent_client
-from agents.common.telemetry import instrument_fastapi, enable_observability
+from agents.common.telemetry import enable_observability
 from agents.common.text import chat_response_text
 
 
@@ -32,28 +33,29 @@ _runtime: AgentRuntime | None = None
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    ai_project_endpoint = os.getenv("AI_PROJECT_ENDPOINT", None)
+    ai_project_endpoint = os.getenv("AZURE_AI_PROJECT_ENDPOINT", None)
     if ai_project_endpoint:
         await enable_observability(ai_project_endpoint=ai_project_endpoint)
     
-    instrument_fastapi(app)
+    with get_tracer(__name__).start_as_current_span("agent_startup") as span:
+        global _runtime
+        _runtime = create_azure_ai_agent_client(
+            agent_name=os.getenv("REVIEWER_AGENT_NAME", "reviewer-agent"),
+            agent_description=os.getenv(
+                "REVIEWER_AGENT_DESCRIPTION",
+                "Reviews and improves a writer draft for a given topic.",
+            ),
+        )
 
-    global _runtime
-    _runtime = create_azure_ai_agent_client(
-        agent_name=os.getenv("REVIEWER_AGENT_NAME", "reviewer-agent"),
-        agent_description=os.getenv(
-            "REVIEWER_AGENT_DESCRIPTION",
-            "Reviews and improves a writer draft for a given topic.",
-        ),
-    )
+        span.set_attribute("agent.name", str(_runtime.client.agent_name))
 
-    try:
-        yield
-    finally:
-        if _runtime is not None:
-            await _runtime.client.close()
-            await _runtime.credential.close()
-            _runtime = None
+        try:
+            yield
+        finally:
+            if _runtime is not None:
+                await _runtime.client.close()
+                await _runtime.credential.close()
+                _runtime = None
 
 
 app = FastAPI(

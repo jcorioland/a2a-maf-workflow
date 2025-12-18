@@ -1,4 +1,3 @@
-from typing import Any
 
 from agent_framework.observability import setup_observability
 from azure.ai.projects.aio import AIProjectClient
@@ -30,14 +29,3 @@ async def enable_observability(*, ai_project_endpoint: str) -> None:
         )
 
         _telemetry_configured = True
-
-
-def instrument_fastapi(app: Any) -> None:
-    """Instrument a FastAPI app for tracing (no-op if unavailable)."""
-
-    try:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-        FastAPIInstrumentor.instrument_app(app)
-    except Exception:
-        return

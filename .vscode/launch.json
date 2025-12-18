@@ -15,6 +15,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
         "A2A_PUBLIC_URL": "http://127.0.0.1:8000"
@@ -36,6 +37,7 @@
       ],
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
         "A2A_PUBLIC_URL": "http://127.0.0.1:8001"
@@ -50,6 +52,7 @@
       "program": "${workspaceFolder}/src/agents/workflow.py",
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"
       },
