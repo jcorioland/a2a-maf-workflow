@@ -2,6 +2,8 @@ locals {
   name_prefix = lower(replace(var.project_name, "_", "-"))
 }
 
+data "azuread_client_config" "current" {}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -61,6 +63,25 @@ resource "azurerm_container_app_environment" "cae" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
   tags = var.tags
+}
+
+# Entra app registrations for Container Apps Authentication (Easy Auth)
+resource "azuread_application_registration" "a2a_maf_auth" {
+  count            = var.create_container_apps ? 1 : 0
+  display_name     = "${local.name_prefix}-a2a-maf-auth"
+  sign_in_audience = "AzureADMyOrg"
+
+  # Required for Container Apps Easy Auth (OIDC sign-in).
+  implicit_id_token_issuance_enabled     = true
+  implicit_access_token_issuance_enabled = false
+}
+
+resource "azuread_service_principal" "a2a_maf_auth" {
+  count     = var.create_container_apps ? 1 : 0
+  client_id = azuread_application_registration.a2a_maf_auth[0].client_id
+
+  # Not strictly required for Easy Auth, but keeps the enterprise app present.
+  app_role_assignment_required = false
 }
 
 resource "azurerm_container_app" "writer" {
@@ -128,6 +149,44 @@ resource "azurerm_container_app" "writer" {
   tags = var.tags
 }
 
+resource "azapi_resource" "writer_auth_config" {
+  count     = var.create_container_apps ? 1 : 0
+  type      = "Microsoft.App/containerApps/authConfigs@2025-07-01"
+  name      = "current"
+  parent_id = azurerm_container_app.writer[0].id
+
+  body = {
+    properties = {
+      platform = {
+        enabled = true
+      }
+
+      httpSettings = {
+        requireHttps = true
+      }
+
+      globalValidation = {
+        unauthenticatedClientAction = "RedirectToLoginPage"
+        redirectToProvider          = "azureActiveDirectory"
+
+        # Keep the existing infra health checks working.
+        excludedPaths = ["/healthz"]
+      }
+
+      identityProviders = {
+        azureActiveDirectory = {
+          enabled = true
+
+          registration = {
+            clientId     = azuread_application_registration.a2a_maf_auth[0].client_id
+            openIdIssuer = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
+          }
+        }
+      }
+    }
+  }
+}
+
 resource "azurerm_container_app" "reviewer" {
   count                        = var.create_container_apps ? 1 : 0
   name                         = "${local.name_prefix}-reviewer"
@@ -191,4 +250,51 @@ resource "azurerm_container_app" "reviewer" {
   depends_on = [azurerm_role_assignment.acr_pull]
 
   tags = var.tags
+}
+
+resource "azapi_resource" "reviewer_auth_config" {
+  count     = var.create_container_apps ? 1 : 0
+  type      = "Microsoft.App/containerApps/authConfigs@2025-07-01"
+  name      = "current"
+  parent_id = azurerm_container_app.reviewer[0].id
+
+  body = {
+    properties = {
+      platform = {
+        enabled = true
+      }
+
+      httpSettings = {
+        requireHttps = true
+      }
+
+      globalValidation = {
+        unauthenticatedClientAction = "RedirectToLoginPage"
+        redirectToProvider          = "azureActiveDirectory"
+        excludedPaths               = ["/healthz"]
+      }
+
+      identityProviders = {
+        azureActiveDirectory = {
+          enabled = true
+
+          registration = {
+            clientId     = azuread_application_registration.a2a_maf_auth[0].client_id
+            openIdIssuer = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "azuread_application_redirect_uris" "a2a_maf_auth" {
+  count          = var.create_container_apps ? 1 : 0
+  application_id = azuread_application_registration.a2a_maf_auth[0].id
+  type           = "Web"
+
+  redirect_uris = [
+    "https://${azurerm_container_app.writer[0].ingress[0].fqdn}/.auth/login/aad/callback",
+    "https://${azurerm_container_app.reviewer[0].ingress[0].fqdn}/.auth/login/aad/callback",
+  ]
 }

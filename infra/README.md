@@ -8,6 +8,10 @@ This folder contains Terraform to deploy:
 - 1x User-assigned Managed Identity used by both apps
 - RBAC: the managed identity gets `AcrPull` on the ACR so Container Apps can pull images
 
+This configuration also enables **Azure Container Apps Authentication (Easy Auth)** using **Microsoft Entra ID** for both apps.
+
+Note: `/.auth/*` endpoints are provided by the platform. The `/healthz` path is excluded from auth so existing health checks keep working.
+
 No Application Insights / Foundry resources are created here. The apps rely on existing resources via environment variables.
 
 ## Prereqs
@@ -16,6 +20,13 @@ No Application Insights / Foundry resources are created here. The apps rely on e
 - Ensure a default subscription is selected (`az account set -s <subscriptionId>`) or set `ARM_SUBSCRIPTION_ID`
 - Terraform installed
 - Docker installed (to build/push images)
+
+### Entra ID permissions
+
+Terraform will create **one app registration** (shared by writer + reviewer).
+The identity running Terraform must have permissions to create app registrations in Microsoft Entra ID (for example, being in the `Application Administrator` directory role, or equivalent permissions).
+
+This setup intentionally avoids creating an Entra client secret (some tenants block secrets via policy) and uses the implicit flow (ID token) path for Container Apps Authentication.
 
 ## Configure
 

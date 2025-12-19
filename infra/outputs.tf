@@ -25,3 +25,11 @@ output "writer_fqdn" {
 output "reviewer_fqdn" {
   value = try(azurerm_container_app.reviewer[0].ingress[0].fqdn, "")
 }
+
+output "writer_entra_client_id" {
+  value = try(azuread_application_registration.a2a_maf_auth[0].client_id, "")
+}
+
+output "reviewer_entra_client_id" {
+  value = try(azuread_application_registration.a2a_maf_auth[0].client_id, "")
+}
