@@ -87,6 +87,20 @@
       "preLaunchTask": "Wait for writer+reviewer APIs (healthz initialized)",
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      "name": "Debug: MCP Workflow (wait for agents)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/agents/workflow_mcp.py",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "preLaunchTask": "Wait for writer+reviewer APIs (healthz initialized)",
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ],
   "compounds": [
@@ -96,6 +110,15 @@
         "Debug: writer agent",
         "Debug: reviewer agent",
         "Debug: workflow (wait for agents)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Debug: agents + MCP workflow",
+      "configurations": [
+        "Debug: writer agent",
+        "Debug: reviewer agent",
+        "Debug: MCP Workflow (wait for agents)"
       ],
       "stopAll": true
     }

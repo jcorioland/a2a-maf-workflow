@@ -22,6 +22,9 @@ dependencies = [
   "fastapi>=0.115.0",
   "uvicorn>=0.30.0",
 
+  # MCP (Model Context Protocol) support
+  "fastmcp>=0.6.0",
+
   # Telemetry to Application Insights (Azure Monitor)
   "azure-monitor-opentelemetry>=1.6.0",
   "opentelemetry-instrumentation-fastapi>=0.49b0",
