@@ -9,6 +9,13 @@ This script:
 The base URLs can be overridden via environment variables:
 - WRITER_A2A_BASE_URL (default: http://localhost:8000/a2a)
 - REVIEWER_A2A_BASE_URL (default: http://localhost:8001/a2a)
+
+If your agents are protected by Entra ID (e.g., Container Apps Easy Auth), configure
+the OAuth2 scope(s) used to acquire an access token:
+- A2A_AUTH_SCOPE (applies to both agents)
+
+Example scope value (common for app-to-app with Entra ID):
+- api://<app-client-id>/.default
 """
 
 import asyncio
@@ -19,6 +26,7 @@ import os
 import re
 import shutil
 import textwrap
+import time
 
 from typing import cast
 
@@ -29,7 +37,58 @@ from agent_framework import AgentRunUpdateEvent, WorkflowBuilder, WorkflowOutput
 from agent_framework.a2a import A2AAgent
 from agent_framework.observability import get_tracer
 
+from azure.identity.aio import DefaultAzureCredential
+
 from agents.common.telemetry import enable_observability
+
+
+def _optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    value = value.strip()
+    return value if value else None
+
+
+class AzureBearerTokenAuth(httpx.Auth):
+    """Attach an Entra access token as a Bearer Authorization header.
+
+    Uses `DefaultAzureCredential` and caches tokens until close to expiration.
+    """
+
+    def __init__(
+        self,
+        *,
+        credential: DefaultAzureCredential,
+        scope: str,
+        refresh_skew_seconds: int = 60,
+    ) -> None:
+        self._credential = credential
+        self._scope = scope
+        self._refresh_skew_seconds = refresh_skew_seconds
+        self._access_token: str | None = None
+        self._expires_on: int = 0
+        self._lock = asyncio.Lock()
+
+    async def _get_access_token(self) -> str:
+        now = int(time.time())
+        if self._access_token and (self._expires_on - now) > self._refresh_skew_seconds:
+            return self._access_token
+
+        async with self._lock:
+            now = int(time.time())
+            if self._access_token and (self._expires_on - now) > self._refresh_skew_seconds:
+                return self._access_token
+
+            token = await self._credential.get_token(self._scope)
+            self._access_token = token.token
+            self._expires_on = int(token.expires_on)
+            return self._access_token
+
+    async def async_auth_flow(self, request: httpx.Request):
+        access_token = await self._get_access_token()
+        request.headers["Authorization"] = f"Bearer {access_token}"
+        yield request
 
 def _wrap_for_console(text: object, *, indent: str = "  ") -> str:
     width = shutil.get_terminal_size(fallback=(100, 24)).columns
@@ -111,6 +170,21 @@ async def _fetch_reviewer_card(http_client, a2a_base_url: str) -> AgentCard:
     return agent_card
 
 
+def _create_http_client(
+    *,
+    credential: DefaultAzureCredential | None,
+    scope: str | None,
+    timeout_seconds: float = 60.0,
+) -> httpx.AsyncClient:
+    auth: httpx.Auth | None = None
+    if scope:
+        if credential is None:
+            raise ValueError("credential is required when scope is set")
+        auth = AzureBearerTokenAuth(credential=credential, scope=scope)
+
+    return httpx.AsyncClient(timeout=timeout_seconds, auth=auth)
+
+
 def _create_agent_from_card(http_client, agent_card: AgentCard) -> A2AAgent:
     """Create an agent using its AgentCard and wrap it as an `A2AAgent`."""
     agent_client = _create_rest_client(http_client=http_client, agent_card=agent_card)
@@ -135,16 +209,29 @@ async def main():
             ai_project_endpoint=ai_project_endpoint,
         )
 
-    async with httpx.AsyncClient(timeout=60.0) as http_client:
+    writer_base_url = os.getenv("WRITER_A2A_BASE_URL", "http://localhost:8000/a2a")
+    reviewer_base_url = os.getenv("REVIEWER_A2A_BASE_URL", "http://localhost:8001/a2a")
+
+    shared_scope = _optional_env("A2A_AUTH_SCOPE")
+
+    credential: DefaultAzureCredential | None = None
+    if shared_scope:
+        credential = DefaultAzureCredential()
+
+    http_client = _create_http_client(credential=credential, scope=shared_scope)
+
+    try:
         # Discover writer agent.
-        writer_base_url = os.getenv("WRITER_A2A_BASE_URL", "http://localhost:8000/a2a")
         writer_card = await _fetch_reviewer_card(http_client, writer_base_url)
-        print(f"Discovered writer agent: {writer_card.name} - {writer_card.description} - {writer_card.url}")
-        
+        print(
+            f"Discovered writer agent: {writer_card.name} - {writer_card.description} - {writer_card.url}"
+        )
+
         # Discover reviewer agent.
-        reviewer_base_url = os.getenv("REVIEWER_A2A_BASE_URL", "http://localhost:8001/a2a")
         reviewer_card = await _fetch_reviewer_card(http_client, reviewer_base_url)
-        print(f"Discovered reviewer agent: {reviewer_card.name} - {reviewer_card.description} - {reviewer_card.url}")
+        print(
+            f"Discovered reviewer agent: {reviewer_card.name} - {reviewer_card.description} - {reviewer_card.url}"
+        )
 
         executor_id_to_name = {
             "writer_agent": writer_card.name,
@@ -154,6 +241,8 @@ async def main():
         with get_tracer(__name__).start_as_current_span("workflow_execution") as span:
             span.set_attribute("writer_agent.url", writer_card.url or "unknown")
             span.set_attribute("reviewer_agent.url", reviewer_card.url or "unknown")
+            if shared_scope:
+                span.set_attribute("a2a.auth_scope", shared_scope)
 
             # Define the workflow graph:
             # - writer is the start node
@@ -219,6 +308,11 @@ async def main():
 
                     if final_output_source is not None:
                         print(f"\n===== Final output: {final_output_source} =====")
+
+    finally:
+        await http_client.aclose()
+        if credential is not None:
+            await credential.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

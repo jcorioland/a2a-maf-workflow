@@ -15,6 +15,13 @@ variable "subscription_id" {
   default     = ""
 }
 
+variable "tenant_id" {
+  description = "Optional Azure Tenant id. If empty, Terraform will try to use your Azure CLI context (az login)."
+  type        = string
+  default     = ""
+}
+
+
 variable "tags" {
   description = "Tags applied to resources."
   type        = map(string)

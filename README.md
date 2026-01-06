@@ -89,6 +89,25 @@ curl -sS -X POST http://localhost:8000/invoke \
   -H 'content-type: application/json' \
   -d '{"topic":"Azure Container Apps"}'
 
+```
+
+### Entra ID / Easy Auth (optional)
+
+If you enabled Azure Container Apps **Easy Auth** with **Entra ID** for the agent apps, clients must send a Bearer token.
+
+- For the workflow runner in [src/agents/workflow.py](src/agents/workflow.py), set a shared scope for both agents:
+  - `A2A_AUTH_SCOPE="api://<app-client-id>/.default"`
+- When `A2A_AUTH_SCOPE` is set, the workflow runner acquires a token using `DefaultAzureCredential` and sends `Authorization: Bearer ...` to both agents.
+
+For local testing with Azure CLI:
+
+```bash
+export A2A_AUTH_SCOPE="api://<app-client-id>/.default"
+TOKEN="$(az account get-access-token --scope "$A2A_AUTH_SCOPE" --query accessToken -o tsv)"
+```
+
+Then add `-H "Authorization: Bearer $TOKEN"` to your `curl` requests.
+
 ### A2A endpoints (Agent-to-Agent protocol)
 
 Each service also exposes A2A REST endpoints under `/a2a` (in addition to `/invoke`).
@@ -128,6 +147,8 @@ curl -sS -X POST http://localhost:8001/invoke \
   -H 'content-type: application/json' \
   -d '{"topic":"Azure Container Apps","draft":"<paste writer output here>"}'
 
+```
+
 Reviewer example (streaming):
 
 The reviewer expects the message text to include both a topic and a draft. Supported formats:
@@ -151,6 +172,7 @@ curl -N -sS -X POST http://localhost:8001/a2a/v1/message:stream \
       "contextId": "local"
     }
   }'
+
 ```
 
 ## Adding dependencies
