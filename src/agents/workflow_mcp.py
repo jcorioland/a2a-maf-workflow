@@ -77,19 +77,21 @@ async def main() -> None:
     writer_agent = AzureAIAgentClient(
         credential=DefaultAzureCredential(),
         agent_name="writer-agent",
-        agent_description="You are a helpful assistant that writes summaries on various topics.",
+        agent_description="Writer Agent",
     ).create_agent(
         name="writer-agent",
-        description="You are a helpful assistant that writes summaries on various topics.",
+        description="Writer Agent",
+        instructions="You are a helpful assistant that writes summaries on various topics using your MCP tool.",
         tools=[writer_tool],
     )
     reviewer_agent = AzureAIAgentClient(
         credential=DefaultAzureCredential(),
         agent_name="reviewer-agent",
-        agent_description="You are a helpful assistant that reviews and improves summaries.",
+        agent_description="Reviewer Agent",
     ).create_agent(
         name="reviewer-agent",
-        description="You are a helpful assistant that reviews and improves summaries.",
+        description="Reviewer Agent",
+        instructions="You are a helpful assistant that reviews and improves summaries that takes write up from another agent and use your MCP tool to improve it.",
         tools=[reviewer_tool],
     )
 
