@@ -7,10 +7,12 @@ from dotenv import load_dotenv
 from agent_framework import ChatMessage
 from agent_framework.observability import get_tracer
 from fastapi import FastAPI, HTTPException
+from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from agents.common.a2a_hosting import mount_a2a_text_agent
 from agents.common.azure_ai import AgentRuntime, create_azure_ai_agent_client
+from agents.common.mcp_hosting import combine_lifespans, mount_mcp_tools
 from agents.common.telemetry import enable_observability
 from agents.common.text import chat_response_text
 
@@ -29,6 +31,16 @@ class InvokeResponse(BaseModel):
 
 
 _runtime: AgentRuntime | None = None
+
+
+# Initialize MCP server
+mcp = FastMCP(
+    name=os.getenv("REVIEWER_AGENT_NAME", "reviewer-agent"),
+    instructions=os.getenv(
+        "REVIEWER_AGENT_DESCRIPTION",
+        "Reviews and improves a writer draft for a given topic.",
+    ),
+)
 
 
 @asynccontextmanager
@@ -58,9 +70,11 @@ async def _lifespan(app: FastAPI):
                 _runtime = None
 
 
+combined_lifespan, mcp_app = combine_lifespans(_lifespan, mcp)
+
 app = FastAPI(
     title="reviewer-agent",
-    lifespan=_lifespan,
+    lifespan=combined_lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -95,6 +109,38 @@ def _parse_review_input(text: str) -> tuple[str, str]:
     return raw, raw
 
 
+# Register MCP tool
+@mcp.tool()
+async def review_summary(topic: str, draft: str) -> dict:
+    """Reviews and improves a draft summary for clarity and correctness.
+    
+    This tool takes a topic and a draft summary, then reviews and improves the draft
+    for better clarity, correctness, and concision. It fixes grammar, removes redundancy,
+    and ensures the content stays faithful to the topic.
+    
+    Args:
+        topic: The topic of the summary (1-4000 characters)
+        draft: The draft summary to review (1-20000 characters)
+    
+    Returns:
+        dict: {
+            "reviewed": str - The improved summary text,
+            "changes_made": bool - Whether any changes were made to the draft
+        }
+        
+    Raises:
+        RuntimeError: If the service is not initialized
+        TimeoutError: If the model call exceeds the timeout
+        Exception: If the model call fails for other reasons
+    """
+    if _runtime is None:
+        raise RuntimeError("Service not initialized")
+    
+    reviewed = await _review_draft(topic, draft)
+    changes_made = reviewed != draft.strip()
+    return {"reviewed": reviewed, "changes_made": changes_made}
+
+
 mount_a2a_text_agent(
     app=app,
     name=os.getenv("REVIEWER_AGENT_NAME", "reviewer-agent"),
@@ -108,6 +154,62 @@ mount_a2a_text_agent(
     skill_tags=["review", "editing", "summarization"],
     respond=lambda text, _context_id: _review_draft(*_parse_review_input(text)),
 )
+
+
+# Mount MCP tools
+mount_mcp_tools(app, mcp_app, prefix="/mcp")
+
+
+@app.get("/mcp-info", tags=["MCP"])
+async def mcp_info() -> dict[str, object]:
+    """Get information about available MCP tools.
+    
+    The Model Context Protocol (MCP) endpoint is available at /mcp.
+    This endpoint provides information about the MCP tools exposed by this agent.
+    
+    Returns:
+        Information about available MCP tools and how to use them.
+    """
+    return {
+        "protocol": "Model Context Protocol (MCP)",
+        "endpoint": "/mcp",
+        "tools": [
+            {
+                "name": "review_summary",
+                "description": "Reviews and improves a draft summary for clarity and correctness.",
+                "parameters": {
+                    "topic": {
+                        "type": "string",
+                        "description": "The topic of the summary (1-4000 characters)",
+                        "required": True,
+                    },
+                    "draft": {
+                        "type": "string",
+                        "description": "The draft summary to review (1-20000 characters)",
+                        "required": True,
+                    },
+                },
+                "returns": {
+                    "reviewed": {
+                        "type": "string",
+                        "description": "The improved summary text",
+                    },
+                    "changes_made": {
+                        "type": "boolean",
+                        "description": "Whether any changes were made to the draft",
+                    },
+                },
+            }
+        ],
+        "usage": {
+            "description": "Connect an MCP client to this endpoint to use the tools",
+            "examples": [
+                "Claude Desktop",
+                "VS Code with MCP extension",
+                "Custom MCP clients",
+            ],
+        },
+    }
 
 
 @app.get("/healthz")

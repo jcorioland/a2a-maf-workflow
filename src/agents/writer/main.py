@@ -7,10 +7,12 @@ from dotenv import load_dotenv
 from agent_framework import ChatMessage
 from agent_framework.observability import get_tracer
 from fastapi import FastAPI, HTTPException
+from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from agents.common.a2a_hosting import mount_a2a_text_agent
 from agents.common.azure_ai import AgentRuntime, create_azure_ai_agent_client
+from agents.common.mcp_hosting import combine_lifespans, mount_mcp_tools
 from agents.common.telemetry import enable_observability
 from agents.common.text import chat_response_text
 
@@ -27,6 +29,16 @@ class InvokeResponse(BaseModel):
 
 
 _runtime: AgentRuntime | None = None
+
+
+# Initialize MCP server
+mcp = FastMCP(
+    name=os.getenv("WRITER_AGENT_NAME", "writer-agent"),
+    instructions=os.getenv(
+        "WRITER_AGENT_DESCRIPTION",
+        "Writes a short summary for a user-provided topic.",
+    ),
+)
 
 
 @asynccontextmanager
@@ -56,9 +68,11 @@ async def _lifespan(app: FastAPI):
                 _runtime = None
 
 
+combined_lifespan, mcp_app = combine_lifespans(_lifespan, mcp)
+
 app = FastAPI(
     title="writer-agent",
-    lifespan=_lifespan,
+    lifespan=combined_lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -101,6 +115,32 @@ async def _write_summary(topic: str) -> str:
     return chat_response_text(response).strip()
 
 
+# Register MCP tool
+@mcp.tool()
+async def write_summary(topic: str) -> dict:
+    """Writes a short, factual summary for a user-provided topic.
+    
+    This tool produces a concise summary (roughly 6-10 sentences) for any given topic.
+    It focuses on factual information and avoids speculation.
+    
+    Args:
+        topic: The topic to write about (1-4000 characters)
+    
+    Returns:
+        dict: {"summary": str} - The generated summary text
+        
+    Raises:
+        RuntimeError: If the service is not initialized
+        TimeoutError: If the model call exceeds the timeout
+        Exception: If the model call fails for other reasons
+    """
+    if _runtime is None:
+        raise RuntimeError("Service not initialized")
+    
+    summary = await _write_summary(topic)
+    return {"summary": summary}
+
+
 mount_a2a_text_agent(
     app=app,
     name=os.getenv("WRITER_AGENT_NAME", "writer-agent"),
@@ -114,6 +154,53 @@ mount_a2a_text_agent(
     skill_tags=["writing", "summarization"],
     respond=lambda text, _context_id: _write_summary(text),
 )
+
+
+# Mount MCP tools
+mount_mcp_tools(app, mcp_app, prefix="/mcp")
+
+
+@app.get("/mcp-info", tags=["MCP"])
+async def mcp_info() -> dict[str, object]:
+    """Get information about available MCP tools.
+    
+    The Model Context Protocol (MCP) endpoint is available at /mcp.
+    This endpoint provides information about the MCP tools exposed by this agent.
+    
+    Returns:
+        Information about available MCP tools and how to use them.
+    """
+    return {
+        "protocol": "Model Context Protocol (MCP)",
+        "endpoint": "/mcp",
+        "tools": [
+            {
+                "name": "write_summary",
+                "description": "Writes a short, factual summary for a user-provided topic.",
+                "parameters": {
+                    "topic": {
+                        "type": "string",
+                        "description": "The topic to write about (1-4000 characters)",
+                        "required": True,
+                    }
+                },
+                "returns": {
+                    "summary": {
+                        "type": "string",
+                        "description": "The generated summary text",
+                    }
+                },
+            }
+        ],
+        "usage": {
+            "description": "Connect an MCP client to this endpoint to use the tools",
+            "examples": [
+                "Claude Desktop",
+                "VS Code with MCP extension",
+                "Custom MCP clients",
+            ],
+        },
+    }
 
 
 @app.get("/healthz")
